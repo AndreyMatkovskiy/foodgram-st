@@ -1,7 +1,6 @@
-from django_filters import rest_framework as filters
 from recipes.models import Recipe, Ingredient
-from django_filters import CharFilter
-from django_filters.rest_framework import FilterSet
+from django_filters import rest_framework as filters
+from django_filters.rest_framework import FilterSet, CharFilter
 
 
 class IngredientFilter(FilterSet):
@@ -12,24 +11,41 @@ class IngredientFilter(FilterSet):
         fields = ('name',)
 
 
-class RecipeFilter(filters.FilterSet):
-    tags = filters.AllValuesMultipleFilter(field_name='tags__identifier')
-    author = filters.NumberFilter(field_name='author__id')
-    is_favorited = filters.BooleanFilter(method='filter_favorited')
-    is_in_shopping_cart = filters.BooleanFilter(method='filter_shopping')
+class RecipeFilter(FilterSet):
+    tags = filters.AllValuesMultipleFilter(
+        field_name='tags__id'
+    )
+    author = filters.NumberFilter(
+        field_name='author__id'
+    )
+    is_favorited = filters.BooleanFilter(
+        method='filter_is_favorited'
+    )
+    is_in_shopping_cart = filters.BooleanFilter(
+        method='filter_is_in_shopping_cart'
+    )
 
     class Meta:
         model = Recipe
-        fields = ['tags', 'author', 'is_favorited', 'is_in_shopping_cart']
+        fields = (
+            'tags',
+            'author',
+            'is_in_shopping_cart',
+            'is_favorited'
+        )
 
-    def filter_favorited(self, queryset, name, value):
+    def filter_is_favorited(self, queryset, name, value):
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return queryset.none()
         if value:
-            return queryset.filter(favorites__author=self.request.user)
-        else:
-            return queryset
+            return queryset.filter(favorited_by__user=user)
+        return queryset.exclude(favorited_by__user=user)
 
-    def filter_shopping(self, queryset, name, value):
+    def filter_is_in_shopping_cart(self, queryset, name, value):
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return queryset.none()
         if value:
-            return queryset.filter(shopping_cart__author=self.request.user)
-        else:
-            return queryset
+            return queryset.filter(in_carts__user=user)
+        return queryset.exclude(in_carts__user=user)

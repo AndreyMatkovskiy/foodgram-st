@@ -1,15 +1,19 @@
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
-    Tag, Ingredient, Recipe,
-    RecipeIngredient, Favorite, ShoppingCart
+    Tag,
+    Ingredient,
+    Recipe,
+    RecipeIngredient,
 )
+from favorites.models import Favorite
 
 
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name',)
-    search_fields = ('name',)
+    list_display = ('id', 'name', 'slug')
+    search_fields = ('name', 'slug')
+    list_filter = ('name',)
 
 
 @admin.register(Ingredient)
@@ -36,14 +40,3 @@ class RecipeAdmin(admin.ModelAdmin):
     )
     def in_favorites(self, obj):
         return Favorite.objects.filter(recipe=obj).count()
-
-
-@admin.register(Favorite)
-class FavoriteAdmin(admin.ModelAdmin):
-    list_display = ('author', 'recipe',)
-    list_display_links = ('recipe',)
-
-
-@admin.register(ShoppingCart)
-class ShoppingCartAdmin(admin.ModelAdmin):
-    list_display = ('author', 'recipe',)

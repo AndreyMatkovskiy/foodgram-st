@@ -1,5 +1,5 @@
-from django.conf import settings
 from django.db import models
+from django.conf import settings
 from .abstract_models import AuthorCreatedModel
 from django.core.validators import MaxValueValidator, MinValueValidator
 
@@ -13,13 +13,19 @@ min_ingredient_value = 1
 class Tag(models.Model):
     name = models.CharField(
         max_length=200,
+        verbose_name='Название тега',
+        unique=True
+    )
+    slug = models.SlugField(
+        max_length=200,
         unique=True,
-        verbose_name='Название тэга'
+        verbose_name='Уникальный слаг'
     )
 
     class Meta:
-        verbose_name = 'тэг'
-        verbose_name_plural = 'Тэги'
+        ordering = ['name']
+        verbose_name = 'тег'
+        verbose_name_plural = 'Теги'
 
     def __str__(self):
         return self.name
@@ -32,7 +38,7 @@ class Ingredient(models.Model):
     )
     measurement_unit = models.CharField(
         max_length=50,
-        verbose_name='Единица измерения'
+        verbose_name='Количество'
     )
 
     class Meta:
@@ -51,6 +57,12 @@ class Ingredient(models.Model):
 
 
 class Recipe(AuthorCreatedModel):
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name='Автор',
+        on_delete=models.CASCADE,
+        related_name='recipes'
+    )
     image = models.ImageField(
         verbose_name='Фото рецепта',
         upload_to='recipes/'
@@ -93,6 +105,16 @@ class Recipe(AuthorCreatedModel):
 
     def __str__(self):
         return self.name
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+        return reverse('recipes-detail', kwargs={'pk': self.pk})
+
+    def get_image(self, obj):
+        if obj.image:
+            request = self.context.get('request')
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
 
 class RecipeIngredient(models.Model):
@@ -147,61 +169,3 @@ class RecipeIngredient(models.Model):
             )
             .order_by('ingredient__name')
         )
-
-
-class Favorite(models.Model):
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='favorites',
-        verbose_name='Пользователь'
-    )
-    recipe = models.ForeignKey(
-        'recipes.Recipe',
-        on_delete=models.CASCADE,
-        related_name='favorited_by',
-        verbose_name='Рецепт'
-    )
-
-    class Meta:
-        default_related_name = 'favorites'
-        verbose_name = 'избранное'
-        verbose_name_plural = 'Избранные'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['author', 'recipe'],
-                name='unique_favorite'
-            )
-        ]
-
-    def __str__(self):
-        return f'{self.author.username} добавил {self.recipe.name} в избранное'
-
-
-class ShoppingCart(models.Model):
-    author = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='shopping_cart',
-        verbose_name='Пользователь'
-    )
-    recipe = models.ForeignKey(
-        'recipes.Recipe',
-        on_delete=models.CASCADE,
-        related_name='in_carts',
-        verbose_name='Рецепт'
-    )
-
-    class Meta:
-        default_related_name = 'shopping_cart'
-        verbose_name = 'корзина'
-        verbose_name_plural = 'Корзина'
-        constraints = [
-            models.UniqueConstraint(
-                fields=['author', 'recipe'],
-                name='unique_cart_item'
-            )
-        ]
-
-    def __str__(self):
-        return f'{self.author.username} добавил {self.recipe.name} в корзину'

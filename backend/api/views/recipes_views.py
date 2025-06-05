@@ -1,15 +1,12 @@
-from collections import defaultdict
+from django.urls import reverse
 from rest_framework import viewsets, permissions, status
-from recipes.models import Tag, Ingredient, Recipe, RecipeIngredient
-from favorites.models import Favorite
-from shopping_list.models import ShoppingCart
+from recipes.models import RecipeIngredient, Tag, Ingredient, Recipe
 from django_filters.rest_framework import DjangoFilterBackend
 from api.serializers.recipes_serializers import (
     TagSerializer,
     IngredientSerializer,
     RecipeSerializer,
-    RecipeCreateUpdateSerializer,
-    ShortRecipeSerializer
+    RecipeCreateUpdateSerializer
 )
 from api.permissions import IsAuthorOrReadOnly
 from api.filters import RecipeFilter, IngredientFilter
@@ -21,7 +18,11 @@ from rest_framework.exceptions import NotFound
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
 from django.utils.text import slugify
-
+from collections import defaultdict
+from api.serializers.favorite_serializers import ShortFavoriteSerializer
+from api.serializers.shopping_list_serializers import (
+    ShortShoppingCartSerializer
+)
 
 User = get_user_model()
 
@@ -45,7 +46,6 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 class RecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.prefetch_related(
         'ingredients_for_the_recipe__ingredient',
-        'tags',
         'favorited_by',
         'in_carts'
     ).all()
@@ -114,18 +114,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
         detail=True,
         methods=['get'],
         url_path='get-link',
-        permission_classes=[]
+        permission_classes=[permissions.AllowAny],
     )
     def get_link(self, request, pk=None):
-        try:
-            recipe = Recipe.objects.get(pk=pk)
-        except Recipe.DoesNotExist:
-            raise NotFound({"detail": "Рецепт не найден"})
-        absolute_url = request.build_absolute_uri(recipe.get_absolute_url())
-        return Response(
-            {"short-link": absolute_url},
-            status=status.HTTP_200_OK
-        )
+        recipe = self.get_object()
+        relative_url = reverse('recipes-detail', args=[recipe.id])
+        full_url = request.build_absolute_uri(relative_url)
+        return Response({'short-link': full_url}, status=status.HTTP_200_OK)
 
     @action(
         detail=True,
@@ -134,23 +129,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def favorite(self, request, pk=None):
         recipe = self.get_object()
+        user = request.user
         if request.method == 'POST':
-            if Favorite.objects.filter(
-                user=request.user,
-                recipe=recipe
-            ).exists():
+            if user.favorites.filter(recipe=recipe).exists():
                 return Response(
                     {"error": "Рецепт уже в избранном"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            Favorite.objects.create(user=request.user, recipe=recipe)
-            serializer = ShortRecipeSerializer(
+            user.favorites.create(recipe=recipe)
+            serializer = ShortFavoriteSerializer(
                 recipe,
                 context={'request': request}
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        favorite = request.user.favorites.filter(recipe=recipe).first()
+        favorite = user.favorites.filter(recipe=recipe).first()
         if not favorite:
             return Response(
                 {"error": "Рецепт не был в избранном"},
@@ -166,23 +158,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
     )
     def shopping_cart(self, request, pk=None):
         recipe = self.get_object()
+        user = request.user
         if request.method == 'POST':
-            if ShoppingCart.objects.filter(
-                user=request.user,
-                recipe=recipe
-            ).exists():
+            if user.shopping_carts.filter(recipe=recipe).exists():
                 return Response(
                     {"error": "Рецепт уже в корзине"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            ShoppingCart.objects.create(user=request.user, recipe=recipe)
-            serializer = ShortRecipeSerializer(
+            user.shopping_carts.create(recipe=recipe)
+            serializer = ShortShoppingCartSerializer(
                 recipe,
                 context={'request': request}
             )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        cart_item = request.user.shopping_carts.filter(recipe=recipe).first()
+        cart_item = user.shopping_carts.filter(recipe=recipe).first()
         if not cart_item:
             return Response(
                 {"error": "Рецепт не был в корзине"},
@@ -239,7 +228,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         ingredient_totals = defaultdict(float)
         for item in ingredients:
             key = (
-                f"{item.ingredient.name} ({item.ingredient.measurement_unit})"
+                f"{item.ingredient.name} "
+                f"({item.ingredient.measurement_unit})"
             )
             ingredient_totals[key] += float(item.value)
         text = 'Список покупок:\n\n'

@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from recipes.models import Recipe
-from ..serializers.shopping_list_serializers import ShortRecipeSerializer
+from ..serializers.shopping_list_serializers import ShortShoppingCartSerializer
 
 
 class ShoppingCartViewSet(viewsets.ViewSet):
@@ -24,7 +24,7 @@ class ShoppingCartViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         request.user.shopping_carts.create(recipe=recipe)
-        serializer = ShortRecipeSerializer(
+        serializer = ShortShoppingCartSerializer(
             recipe,
             context={'request': request}
         )

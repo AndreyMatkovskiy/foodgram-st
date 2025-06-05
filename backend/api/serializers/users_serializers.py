@@ -1,8 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from rest_framework.validators import UniqueValidator
-from users.models import Subscription
-from recipes.models import Recipe
+from api.serializers.recipes_serializers import ShortRecipeSerializer
 import re
 
 User = get_user_model()
@@ -14,6 +13,12 @@ def validate_username(value):
             'Username содержит недопустимые символы.'
         )
     return value
+
+
+class ShortUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username', 'first_name', 'last_name')
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -39,12 +44,11 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         request = self.context.get('request')
-        if not request or not request.user.is_authenticated:
-            return False
-        return Subscription.objects.filter(
-            follower=request.user,
-            following=obj
-        ).exists()
+        return (
+            request and
+            request.user.is_authenticated and
+            obj.followers.filter(follower=request.user).exists()
+        )
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -88,17 +92,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
         return data
 
 
-class ShortRecipeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Recipe
-        fields = (
-            'id',
-            'name',
-            'image',
-            'cooking_time'
-        )
-
-
 class SubscriptionSerializer(UserSerializer):
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
@@ -118,7 +111,6 @@ class SubscriptionSerializer(UserSerializer):
         )
 
     def get_recipes(self, obj):
-        from api.serializers.recipes_serializers import ShortRecipeSerializer
         recipes = obj.recipes.all()
         limit = self.context['request'].query_params.get('recipes_limit')
         if limit and limit.isdigit():

@@ -20,7 +20,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
         return None
 
 
-class ShortRecipeSerializer(serializers.ModelSerializer):
+class ShortFavoriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recipe
         fields = ('id', 'name', 'image', 'cooking_time')

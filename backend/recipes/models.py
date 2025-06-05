@@ -3,11 +3,10 @@ from django.conf import settings
 from .abstract_models import AuthorCreatedModel
 from django.core.validators import MaxValueValidator, MinValueValidator
 
-
-min_cooking_time = 1
-max_len_recipe = 256
-max_value = 32000
-min_ingredient_value = 1
+MIN_COOKING_TIME = 1
+MAX_LEN_RECIPE = 256
+MAX_VALUE = 32000
+MIN_INGREDIENT_VALUE = 1
 
 
 class Tag(models.Model):
@@ -69,7 +68,7 @@ class Recipe(AuthorCreatedModel):
     )
     name = models.CharField(
         verbose_name='Название рецепта',
-        max_length=max_len_recipe
+        max_length=MAX_LEN_RECIPE
     )
     text = models.TextField(
         verbose_name='Описание'
@@ -78,12 +77,12 @@ class Recipe(AuthorCreatedModel):
         verbose_name='Время готовки',
         validators=[
             MinValueValidator(
-                min_cooking_time,
-                f'Значение должно быть не меньше {min_cooking_time}'
+                MIN_COOKING_TIME,
+                f'Значение должно быть не меньше {MIN_COOKING_TIME}'
             ),
             MaxValueValidator(
-                max_value,
-                f'Значение должно быть больше {max_value}'
+                MAX_VALUE,
+                f'Значение должно быть больше {MAX_VALUE}'
             )
         ]
     )
@@ -106,16 +105,6 @@ class Recipe(AuthorCreatedModel):
     def __str__(self):
         return self.name
 
-    def get_absolute_url(self):
-        from django.urls import reverse
-        return reverse('recipes-detail', kwargs={'pk': self.pk})
-
-    def get_image(self, obj):
-        if obj.image:
-            request = self.context.get('request')
-            return request.build_absolute_uri(obj.image.url)
-        return None
-
 
 class RecipeIngredient(models.Model):
     ingredient = models.ForeignKey(
@@ -132,12 +121,12 @@ class RecipeIngredient(models.Model):
         verbose_name='Количество ингредиентов',
         validators=[
             MinValueValidator(
-                min_ingredient_value,
-                f'Значение должно быть не меньше {min_ingredient_value}'
+                MIN_INGREDIENT_VALUE,
+                f'Значение должно быть не меньше {MIN_INGREDIENT_VALUE}'
             ),
             MaxValueValidator(
-                max_value,
-                f'Значение должно быть не больше {max_value}'
+                MAX_VALUE,
+                f'Значение должно быть не больше {MAX_VALUE}'
             )
         ]
     )
@@ -155,17 +144,3 @@ class RecipeIngredient(models.Model):
 
     def __str__(self):
         return f'{self.ingredient} - {self.value}'
-
-    @classmethod
-    def shopping(cls, user):
-        return (
-            cls.objects.filter(
-                models.Q(recipe__in=user.shopping_cart.values('recipe'))
-            )
-            .values(name=models.F('ingredient__name'))
-            .annotate(
-                unit=models.F('ingredient__measurement_unit'),
-                count=models.Sum('amount'),
-            )
-            .order_by('ingredient__name')
-        )

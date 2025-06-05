@@ -14,7 +14,7 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
         read_only_fields = ('user',)
 
 
-class ShortRecipeSerializer(serializers.ModelSerializer):
+class ShortShoppingCartSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recipe
         fields = (

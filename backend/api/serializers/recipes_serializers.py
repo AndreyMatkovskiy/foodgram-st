@@ -77,11 +77,17 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def get_is_favorited(self, obj):
         user = self.context['request'].user
-        return user.is_authenticated and user.favorites.filter(recipe=obj).exists()
+        return (
+            user.is_authenticated
+            and user.favorites.filter(recipe=obj).exists()
+        )
 
     def get_is_in_shopping_cart(self, obj):
         user = self.context['request'].user
-        return user.is_authenticated and user.shopping_carts.filter(recipe=obj).exists()
+        return (
+            user.is_authenticated
+            and user.shopping_carts.filter(recipe=obj).exists()
+        )
 
 
 class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
@@ -114,7 +120,9 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
             raise ValidationError("Ингредиенты не должны дублироваться")
         existing_ingredients = Ingredient.objects.filter(id__in=ingredient_ids)
         if existing_ingredients.count() != len(ingredient_ids):
-            existing_ids = set(existing_ingredients.values_list('id', flat=True))
+            existing_ids = set(
+                existing_ingredients.values_list('id', flat=True)
+            )
             missing_ids = set(ingredient_ids) - existing_ids
             raise ValidationError(f"Несуществующие ингредиенты: {missing_ids}")
         return value
@@ -130,7 +138,9 @@ class RecipeCreateUpdateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         ingredients_data = validated_data.pop('ingredients')
-        user = validated_data.pop('author', None) or self.context['request'].user
+        user = (
+            validated_data.pop('author', None) or self.context['request'].user
+        )
         recipe = Recipe.objects.create(author=user, **validated_data)
         self._create_ingredients(recipe, ingredients_data)
         return recipe
